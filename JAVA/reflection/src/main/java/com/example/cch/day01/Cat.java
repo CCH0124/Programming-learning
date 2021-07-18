@@ -18,4 +18,8 @@ public class Cat {
     public void catching() {
         System.out.println("catching...");
     }
+
+    public void sleep() {
+        
+    }
 }
