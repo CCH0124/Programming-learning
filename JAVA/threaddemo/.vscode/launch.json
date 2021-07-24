@@ -1,0 +1,238 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Launch TakeOutConditionLockTest",
+            "request": "launch",
+            "mainClass": "com.example.cch.day05.TakeOutConditionLockTest",
+            "projectName": "threaddemo"
+        },
+        {
+            "type": "java",
+            "name": "Launch PhilosophersDiningTryLockSolutionDeadLock",
+            "request": "launch",
+            "mainClass": "com.example.cch.day05.PhilosophersDiningTryLockSolutionDeadLock",
+            "projectName": "threaddemo"
+        },
+        {
+            "type": "java",
+            "name": "Launch TryLockTest",
+            "request": "launch",
+            "mainClass": "com.example.cch.day05.TryLockTest",
+            "projectName": "threaddemo"
+        },
+        {
+            "type": "java",
+            "name": "Launch LockInterruptTest",
+            "request": "launch",
+            "mainClass": "com.example.cch.day05.LockInterruptTest",
+            "projectName": "threaddemo"
+        },
+        {
+            "type": "java",
+            "name": "Launch ReentrantLockTest",
+            "request": "launch",
+            "mainClass": "com.example.cch.day05.ReentrantLockTest",
+            "projectName": "threaddemo"
+        },
+        {
+            "type": "java",
+            "name": "Launch Livelock",
+            "request": "launch",
+            "mainClass": "com.example.cch.day05.Livelock",
+            "projectName": "threaddemo"
+        },
+        {
+            "type": "java",
+            "name": "Launch PhilosophersDiningTest",
+            "request": "launch",
+            "mainClass": "com.example.cch.day05.PhilosophersDiningTest",
+            "projectName": "threaddemo"
+        },
+        {
+            "type": "java",
+            "name": "Launch Daedlock",
+            "request": "launch",
+            "mainClass": "com.example.cch.day05.Daedlock",
+            "projectName": "threaddemo"
+        },
+        {
+            "type": "java",
+            "name": "Launch MultipleLock",
+            "request": "launch",
+            "mainClass": "com.example.cch.day04.MultipleLock",
+            "projectName": "threaddemo"
+        },
+        {
+            "type": "java",
+            "name": "Launch SleepWaitTest",
+            "request": "launch",
+            "mainClass": "com.example.cch.day04.SleepWaitTest",
+            "projectName": "threaddemo"
+        },
+        {
+            "type": "java",
+            "name": "Launch WaitNotifyTest",
+            "request": "launch",
+            "mainClass": "com.example.cch.day04.WaitNotifyTest",
+            "projectName": "threaddemo"
+        },
+        {
+            "type": "java",
+            "name": "Launch Current File",
+            "request": "launch",
+            "mainClass": "${file}"
+        },
+        {
+            "type": "java",
+            "name": "Launch App",
+            "request": "launch",
+            "mainClass": "com.example.cch.App",
+            "projectName": "threaddemo"
+        },
+        {
+            "type": "java",
+            "name": "Launch Async",
+            "request": "launch",
+            "mainClass": "com.example.cch.day01.Async",
+            "projectName": "threaddemo"
+        },
+        {
+            "type": "java",
+            "name": "Launch Sync",
+            "request": "launch",
+            "mainClass": "com.example.cch.day01.Sync",
+            "projectName": "threaddemo"
+        },
+        {
+            "type": "java",
+            "name": "Launch FutureTaskTest",
+            "request": "launch",
+            "mainClass": "com.example.cch.day02.FutureTaskTest",
+            "projectName": "threaddemo"
+        },
+        {
+            "type": "java",
+            "name": "Launch LambdaTest",
+            "request": "launch",
+            "mainClass": "com.example.cch.day02.LambdaTest",
+            "projectName": "threaddemo"
+        },
+        {
+            "type": "java",
+            "name": "Launch RunnableTest",
+            "request": "launch",
+            "mainClass": "com.example.cch.day02.RunnableTest",
+            "projectName": "threaddemo"
+        },
+        {
+            "type": "java",
+            "name": "Launch ThreadTest",
+            "request": "launch",
+            "mainClass": "com.example.cch.day02.ThreadTest",
+            "projectName": "threaddemo"
+        },
+        {
+            "type": "java",
+            "name": "Launch DaemonThreadTest",
+            "request": "launch",
+            "mainClass": "com.example.cch.day03.DaemonThreadTest",
+            "projectName": "threaddemo"
+        },
+        {
+            "type": "java",
+            "name": "Launch InterrupterSleepTest",
+            "request": "launch",
+            "mainClass": "com.example.cch.day03.InterrupterSleepTest",
+            "projectName": "threaddemo"
+        },
+        {
+            "type": "java",
+            "name": "Launch InterrupterTest",
+            "request": "launch",
+            "mainClass": "com.example.cch.day03.InterrupterTest",
+            "projectName": "threaddemo"
+        },
+        {
+            "type": "java",
+            "name": "Launch InterrupterThreadTest",
+            "request": "launch",
+            "mainClass": "com.example.cch.day03.InterrupterThreadTest",
+            "projectName": "threaddemo"
+        },
+        {
+            "type": "java",
+            "name": "Launch JoinTest",
+            "request": "launch",
+            "mainClass": "com.example.cch.day03.JoinTest",
+            "projectName": "threaddemo"
+        },
+        {
+            "type": "java",
+            "name": "Launch ParkTest",
+            "request": "launch",
+            "mainClass": "com.example.cch.day03.ParkTest",
+            "projectName": "threaddemo"
+        },
+        {
+            "type": "java",
+            "name": "Launch SleepTest",
+            "request": "launch",
+            "mainClass": "com.example.cch.day03.SleepTest",
+            "projectName": "threaddemo"
+        },
+        {
+            "type": "java",
+            "name": "Launch StartAndRun",
+            "request": "launch",
+            "mainClass": "com.example.cch.day03.StartAndRun",
+            "projectName": "threaddemo"
+        },
+        {
+            "type": "java",
+            "name": "Launch ThreadStateTest",
+            "request": "launch",
+            "mainClass": "com.example.cch.day03.ThreadStateTest",
+            "projectName": "threaddemo"
+        },
+        {
+            "type": "java",
+            "name": "Launch TwoPhaseTermination",
+            "request": "launch",
+            "mainClass": "com.example.cch.day03.TwoPhaseTermination",
+            "projectName": "threaddemo"
+        },
+        {
+            "type": "java",
+            "name": "Launch ObjectRefThreadTest",
+            "request": "launch",
+            "mainClass": "com.example.cch.day04.ObjectRefThreadTest",
+            "projectName": "threaddemo"
+        },
+        {
+            "type": "java",
+            "name": "Launch ShareThreadTest",
+            "request": "launch",
+            "mainClass": "com.example.cch.day04.ShareThreadTest",
+            "projectName": "threaddemo"
+        },
+        {
+            "type": "java",
+            "name": "Launch ThreadBiasedTest",
+            "request": "launch",
+            "mainClass": "com.example.cch.day04.ThreadBiasedTest",
+            "projectName": "threaddemo"
+        },
+        {
+            "type": "java",
+            "name": "Launch WhoSynchronizedObject",
+            "request": "launch",
+            "mainClass": "com.example.cch.day04.WhoSynchronizedObject",
+            "projectName": "threaddemo"
+        }
+    ]
+}
