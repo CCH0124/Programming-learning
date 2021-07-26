@@ -6,6 +6,20 @@
     "configurations": [
         {
             "type": "java",
+            "name": "Launch VisibleSynchronizedTest",
+            "request": "launch",
+            "mainClass": "com.example.cch.day06.VisibleSynchronizedTest",
+            "projectName": "threaddemo"
+        },
+        {
+            "type": "java",
+            "name": "Launch VisibleTest",
+            "request": "launch",
+            "mainClass": "com.example.cch.day06.VisibleTest",
+            "projectName": "threaddemo"
+        },
+        {
+            "type": "java",
             "name": "Launch TakeOutConditionLockTest",
             "request": "launch",
             "mainClass": "com.example.cch.day05.TakeOutConditionLockTest",
