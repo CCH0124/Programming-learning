@@ -173,3 +173,17 @@ log.info(f2.get(3, TimeUnit.SECONDS)); // 3 秒內要拿到資料
         }
     }
 ```
+
+## CompletableFuture
+對於 `FutureTask.get()` 會是阻塞，所以效率會降低。`isDone` 會耗費 CPU 資源。`CompletableFuture`提供了一種觀察者模式類似機制，可以讓任務執行完成後通知監聽一方。
+
+`CompletableFuture` 實現了 `Future` 和 `CompletionStage`。
+
+`CompletionStage` 表示異步計算過程某一個階段，一個階段完成後可能會觸發另一個階段。可以用以下靜態方法建立一個異步任務
+
+- runAsync
+  - 無返回值
+- supplyAsync
+  - 有返回值
+
+上述無指定 `Executor` 的方法，預設是 `ForkJoinPool.commonPool()`，作為線程池。
