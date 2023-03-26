@@ -479,3 +479,354 @@ public static void thenAccept() throws InterruptedException, ExecutionException 
 ```
 
 ## 鎖
+### 樂觀鎖和悲觀鎖
+
+**悲觀鎖**
+
+認為在自己使用數據的時候一定有別的線程來修改數據，因此在獲取數據的時候會先加鎖，確保數據不會被別的線程修改。
+
+適合應用於寫操作多的場景，先加鎖可以保證寫操作數據正確。
+
+>`synchronized` 和 `Lock` 的實現類都是悲觀鎖
+
+
+**樂觀鎖**
+在使用數據時不會有別的線程來修改數據或資源，所以不添加鎖。
+
+判斷規則
+1. 版本號機制
+2. CAS演算法，在原子類(Atomic)使用該演算法實現
+
+適合應用於讀操作多的場景，不加鎖可讓操作效能提升。
+
+
+### 鎖案例
+
+1. 標準存取 mail 和 sns 線程，執行順序
+
+```java
+    public static void caseOne() {
+        Phone phone = new Phone();
+
+        new Thread(() -> {
+            log.info(String.format("Thread Name: %s", Thread.currentThread().getName()));
+            phone.sendMail();
+        }, "mail").start();
+
+        try {
+            TimeUnit.MILLISECONDS.sleep(200);
+        } catch (InterruptedException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+
+        new Thread(() -> {
+            log.info(String.format("Thread Name: %s", Thread.currentThread().getName()));
+            phone.sendSMS();
+        }, "sms").start();
+    }
+// INFO: Thread Name: mail
+// Send Mail
+// Mar 26, 2023 7:35:58 PM com.cch.juc.day02.LockDemo main
+// INFO: Thread Name: main
+// Mar 26, 2023 7:35:58 PM com.cch.juc.day02.LockDemo lambda$1
+// INFO: Thread Name: sms
+// Send SMS
+```
+
+因為 `TimeUnit.MILLISECONDS.sleep(200);` 保證 mail 先執行
+
+2. sendMail 方法中加入暫停 3 秒，請問打印順序
+
+```java
+// Phone 類別的 Mail 增加暫停
+    public synchronized void sendMailCaseTwo() {
+        try {
+            Thread.sleep(3000);
+        } catch (InterruptedException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+        System.out.println("Send Mail");
+    }
+```
+```java
+
+    public static void caseTwo() {
+        Phone phone = new Phone();
+
+        new Thread(() -> {
+            log.info(String.format("Thread Name: %s", Thread.currentThread().getName()));
+            phone.sendMailCaseTwo();
+        }, "mail").start();
+
+        try {
+            TimeUnit.MILLISECONDS.sleep(200);
+        } catch (InterruptedException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+
+        new Thread(() -> {
+            log.info(String.format("Thread Name: %s", Thread.currentThread().getName()));
+            phone.sendSMS();
+        }, "sms").start();
+    }
+
+// Mar 26, 2023 7:45:11 PM com.cch.juc.day02.LockDemo lambda$2
+// INFO: Thread Name: mail
+// Mar 26, 2023 7:45:11 PM com.cch.juc.day02.LockDemo main
+// INFO: Thread Name: main
+// Mar 26, 2023 7:45:11 PM com.cch.juc.day02.LockDemo lambda$3
+// INFO: Thread Name: sms
+// Send Mail
+// Send SMS
+```
+
+3. 添加一個 Hello 方法，是 mail 還是 hello 先打印
+
+```java
+// Phone 類別增加 hello()
+    public void hello() {
+        System.out.println("hello");
+    }
+```
+
+```java
+    public static void caseThree() {
+        Phone phone = new Phone();
+
+        new Thread(() -> {
+            log.info(String.format("Thread Name: %s", Thread.currentThread().getName()));
+            phone.sendMailCaseTwo();
+        }, "mail").start();
+
+        try {
+            TimeUnit.MILLISECONDS.sleep(200);
+        } catch (InterruptedException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+
+        new Thread(() -> {
+            log.info(String.format("Thread Name: %s", Thread.currentThread().getName()));
+            phone.hello();
+        }, "hello").start();
+    }
+// Mar 26, 2023 7:51:35 PM com.cch.juc.day02.LockDemo lambda$4
+// INFO: Thread Name: mail
+// Mar 26, 2023 7:51:35 PM com.cch.juc.day02.LockDemo main
+// INFO: Thread Name: main
+// Mar 26, 2023 7:51:35 PM com.cch.juc.day02.LockDemo lambda$5
+// INFO: Thread Name: hello
+// hello
+// Send Mail
+```
+
+4. 兩部手機(Phone 類別)，先 mail 還是 sms，一部手機只有 mail，另外一個只有 sms
+
+```java
+    public static void caseFour() {
+        Phone phone = new Phone();
+        Phone phone2 = new Phone();
+
+        new Thread(() -> {
+            log.info(String.format("Thread Name: %s", Thread.currentThread().getName()));
+            phone.sendMailCaseTwo();
+        }, "phone1").start();
+
+        try {
+            TimeUnit.MILLISECONDS.sleep(200);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        new Thread(() -> {
+            log.info(String.format("Thread Name: %s", Thread.currentThread().getName()));
+            phone2.sendSMS();
+        }, "phone2").start();
+    }
+// Mar 26, 2023 7:58:13 PM com.cch.juc.day02.LockDemo lambda$6
+// INFO: Thread Name: phone1
+// Mar 26, 2023 7:58:13 PM com.cch.juc.day02.LockDemo main
+// INFO: Thread Name: main
+// Mar 26, 2023 7:58:13 PM com.cch.juc.day02.LockDemo lambda$7
+// INFO: Thread Name: phone2
+// Send SMS
+// Send Mail
+```
+
+5. 有兩個靜態同步方法，一部手機，先打印 mail 還是 sms
+
+```java
+// Phone 類別增加
+    public static synchronized void sendMailCaseFive() {
+         try {
+            Thread.sleep(3000);
+        } catch (InterruptedException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+        log.info("Send Mail");
+    }
+
+    public static synchronized void sendSMSCaseFive() {
+        log.info("Send SMS");
+    }
+```
+
+
+```java
+    public static void caseFive() {
+        Phone phone = new Phone();
+
+        new Thread(() -> {
+            log.info(String.format("Thread Name: %s", Thread.currentThread().getName()));
+            phone.sendMailCaseFive();
+        }, "mail").start();
+
+        try {
+            TimeUnit.MILLISECONDS.sleep(200);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        new Thread(() -> {
+            log.info(String.format("Thread Name: %s", Thread.currentThread().getName()));
+            phone.sendSMSCaseFive();
+        }, "sms").start();
+    }
+// Mar 26, 2023 8:05:31 PM com.cch.juc.day02.LockDemo lambda$8
+// INFO: Thread Name: mail
+// Mar 26, 2023 8:05:31 PM com.cch.juc.day02.Phone sendMailCaseFive
+// INFO: Send Mail
+// Mar 26, 2023 8:05:32 PM com.cch.juc.day02.LockDemo main
+// INFO: Thread Name: main
+// Mar 26, 2023 8:05:32 PM com.cch.juc.day02.LockDemo lambda$9
+// INFO: Thread Name: sms
+// Mar 26, 2023 8:05:32 PM com.cch.juc.day02.Phone sendSMSCaseFive
+// INFO: Send SMS
+```
+
+6. 有兩個靜態同步方法，兩部手機，先打印 phon1 的 mail 還是 phone2 的 sms
+
+```java
+   public static void caseSix() {
+        Phone phone = new Phone();
+        Phone phone2 = new Phone();
+
+        new Thread(() -> {
+            log.info(String.format("Thread Name: %s", Thread.currentThread().getName()));
+            phone.sendMailCaseFive();
+        }, "phone1").start();
+
+        try {
+            TimeUnit.MILLISECONDS.sleep(200);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        new Thread(() -> {
+            log.info(String.format("Thread Name: %s", Thread.currentThread().getName()));
+            phone2.sendSMSCaseFive();
+        }, "phone2").start();
+    }
+// Mar 26, 2023 8:07:33 PM com.cch.juc.day02.LockDemo lambda$10
+// INFO: Thread Name: phone1
+// Mar 26, 2023 8:07:33 PM com.cch.juc.day02.Phone sendMailCaseFive
+// INFO: Send Mail
+// Mar 26, 2023 8:07:33 PM com.cch.juc.day02.LockDemo main
+// INFO: Thread Name: main
+// Mar 26, 2023 8:07:33 PM com.cch.juc.day02.LockDemo lambda$11
+// INFO: Thread Name: phone2
+// Mar 26, 2023 8:07:33 PM com.cch.juc.day02.Phone sendSMSCaseFive
+// INFO: Send SMS
+```
+
+7. 有一個靜態同步方法，和一個普通同步方法，一部手機，先打印 mail 還是 sms
+
+```java
+    public static void caseSeven() {
+        Phone phone = new Phone();
+
+
+        new Thread(() -> {
+            log.info(String.format("Thread Name: %s", Thread.currentThread().getName()));
+            phone.sendMailCaseFive();
+        }, "mail").start();
+
+        try {
+            TimeUnit.MILLISECONDS.sleep(200);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        new Thread(() -> {
+            log.info(String.format("Thread Name: %s", Thread.currentThread().getName()));
+            phone.sendSMS();
+        }, "sms").start();
+    }
+// Mar 26, 2023 8:13:30 PM com.cch.juc.day02.LockDemo lambda$12
+// INFO: Thread Name: mail
+// Mar 26, 2023 8:13:30 PM com.cch.juc.day02.LockDemo main
+// INFO: Thread Name: main
+// Mar 26, 2023 8:13:30 PM com.cch.juc.day02.LockDemo lambda$13
+// INFO: Thread Name: sms
+// Send SMS
+// Mar 26, 2023 8:13:33 PM com.cch.juc.day02.Phone sendMailCaseFive
+// INFO: Send Mail
+```
+
+8. 有一個靜態同步方法，和一個普通同步方法，兩部手機，先打印 phon1 的 mail 還是 phone2 的 sms
+
+```java
+    public static void caseEight() {
+        Phone phone = new Phone();
+        Phone phone2 = new Phone();
+
+        new Thread(() -> {
+            log.info(String.format("Thread Name: %s", Thread.currentThread().getName()));
+            phone.sendMailCaseFive();
+        }, "phone1").start();
+
+        try {
+            TimeUnit.MILLISECONDS.sleep(200);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        new Thread(() -> {
+            log.info(String.format("Thread Name: %s", Thread.currentThread().getName()));
+            phone2.sendSMS();
+        }, "phone2").start();
+    }
+// Mar 26, 2023 8:16:37 PM com.cch.juc.day02.LockDemo lambda$14
+// INFO: Thread Name: phone1
+// Mar 26, 2023 8:16:37 PM com.cch.juc.day02.LockDemo main
+// INFO: Thread Name: main
+// Mar 26, 2023 8:16:37 PM com.cch.juc.day02.LockDemo lambda$15
+// INFO: Thread Name: phone2
+// Send SMS
+// Mar 26, 2023 8:16:40 PM com.cch.juc.day02.Phone sendMailCaseFive
+// INFO: Send Mail
+```
+
+**總結**
+對於第一和二案例
+
+- 一個物件裡如果有多個 `synchronized` 方法，**某一個時刻內，只要一個線程去掉用其中的一個 `synchronized`  方法**，其它線程只能等待。因此該時刻只有有唯一的線程去訪問這些 `synchronized` 方法，**鎖的當前對象是 `this`，被鎖定後，其它線程都不能進入當前物件的其它 `synchronized`  方法**。
+
+對於第三和四案例
+
+- 加個普通方法後，同步鎖與他無關
+- 換成兩個不同 phone 物件後，鎖不是針對同一物件，因次也是不相關，情況立刻會有所變化(物件鎖)
+
+對於第五和六案例，換成靜態方法
+- 對於普通同步方法，**鎖的對象是當前實例**，指的是 `this`，具體的每部手機，所有的普通方法用的都是同把鎖
+- 對於靜態同步方法，**鎖的對象是當前 Class 對象**，像是 `Phone.class`
+- 對於同步方法塊，**鎖的對象是 `synchronized` 括號內的對象**
+
+對於第七和八案例
+- 當一個線程試圖訪問同步程式碼時它首先必須得到鎖，正常退出或拋出異常時必須釋放鎖
+- 所有普通方法用的都是同一把鎖(實例對象本身)，一個實例對象的普通同步方法獲取鎖後，該實例對象的其他普通同步方法必須等待獲取鎖的方法釋放鎖後才能獲取鎖
+- 靜態同步方法鎖目標是類本身，物件鎖和類鎖，是兩個不同的對象，靜態同步方法和普通同步方法是不會有競爭條件的，但是一旦一個靜態同步方法獲取鎖後，其他的靜態同步方法需等待該方法釋放鎖後才能獲取
