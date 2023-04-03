@@ -1530,5 +1530,145 @@ public class InterruptDemo2 {
 
 **等待喚醒機制**
 1. `Object` 類中的 `wait()` 讓線程等待，使用 `notify()` 喚醒
+
+```java
+    private static void objectLock() throws InterruptedException {
+        Object ol = new Object();
+
+        new Thread(() -> {
+            synchronized (ol) {
+                log.info(String.format("%s come in...", Thread.currentThread().getName()));
+                try {
+                    ol.wait(); // 交出控制權
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                log.info(String.format("%s wake...", Thread.currentThread().getName()));
+            }
+        }, "t1").start();
+
+        Thread.sleep(1000);
+
+        new Thread(() -> {
+            synchronized (ol) {
+                ol.notify();
+                log.info(String.format("%s notify...", Thread.currentThread().getName()));
+            }
+        }, "t2").start();   
+    }
+// 4月 03, 2023 4:49:51 下午 com.cch.juc.day03.LockSupportDemo lambda$0
+// 資訊: t1 come in...
+// 4月 03, 2023 4:49:52 下午 com.cch.juc.day03.LockSupportDemo lambda$1
+// 資訊: t2 notify...
+// 4月 03, 2023 4:49:52 下午 com.cch.juc.day03.LockSupportDemo lambda$0
+// 資訊: t1 wake...
+```
+
+對於 `notify` 和 `wait` 必須被 `synchronized` 包覆，否則將會有異常。如果先 `notify` 再 `wait` 將導致有線程被卡在 `wait` 狀態。
+
 2. JUC 中 `Condition` 的 `await()` 讓線程等待，使用 `signal()` 喚醒
+
+```java
+    private static void conditionLock() throws InterruptedException {
+        Lock reentrantLock = new ReentrantLock();
+        Condition newCondition = reentrantLock.newCondition();
+        new Thread(() -> {
+            reentrantLock.lock();
+            log.info(String.format("%s come in...", Thread.currentThread().getName()));
+            try {
+                newCondition.await();
+                log.info(String.format("%s wake...", Thread.currentThread().getName()));
+            } catch (Exception e) {
+                e.printStackTrace();
+            } finally {
+                reentrantLock.unlock();
+            }
+        }, "t1").start();
+
+        Thread.sleep(1000);
+
+        new Thread(() -> {
+            reentrantLock.lock();
+            try {
+                newCondition.signal();
+                log.info(String.format("%s notify...", Thread.currentThread().getName()));
+            } finally {
+                reentrantLock.unlock();
+            }
+        }, "t2").start();
+    }
+// 4月 03, 2023 5:01:28 下午 com.cch.juc.day03.LockSupportDemo lambda$2
+// 資訊: t1 come in...
+// 4月 03, 2023 5:01:29 下午 com.cch.juc.day03.LockSupportDemo lambda$3
+// 資訊: t2 notify...
+// 4月 03, 2023 5:01:29 下午 com.cch.juc.day03.LockSupportDemo lambda$2
+// 資訊: t1 wake...
+```
+同樣的再 `lock` 和 `unlock` 之間中才能使用 `await` 和 `signal`。順序上也是要先 `await` 再 `signal`。
+
 3. `LockSupport` 類可以阻塞當前線程以及喚醒指定被阻塞的線程
+
+`LockSupport` 類使用名為 `Permit` 的概念來做到阻塞和喚醒線程的功能，**每個線程都有一個 `Permit`**。
+
+```java
+    private static void parkLock() throws InterruptedException {
+       Thread t1 = new Thread(() -> {
+                   log.info(String.format("%s come in...", Thread.currentThread().getName()));
+                   LockSupport.park();
+                   log.info(String.format("%s wake...", Thread.currentThread().getName()));
+               }, "t1");
+        t1.start();
+        Thread.sleep(1000);
+
+        new Thread(() -> {
+            LockSupport.unpark(t1);
+            log.info(String.format("%s notify...", Thread.currentThread().getName()));
+        }, "t2").start();
+    }
+// 4月 03, 2023 5:19:33 下午 com.cch.juc.day03.LockSupportDemo lambda$4
+// 資訊: t1 come in...
+// 4月 03, 2023 5:19:34 下午 com.cch.juc.day03.LockSupportDemo lambda$5
+// 資訊: t2 notify...
+// 4月 03, 2023 5:19:34 下午 com.cch.juc.day03.LockSupportDemo lambda$4
+// 資訊: t1 wake...
+```
+
+無須 `lock` 或是 `synchronized` 要求，先前的順序問題(先喚醒後等待) `LockSupport` 是支援的，因為 `unpark` 給了通行證，讓 `park` 呈現無效狀態。
+
+下面的 `park` 和 `unpark` 是一對即可。否則將會有意想不到結果。
+```java
+    private static void parkLock() throws InterruptedException {
+       Thread t1 = new Thread(() -> {
+                   log.info(String.format("%s come in...", Thread.currentThread().getName()));
+                   LockSupport.park();
+                   LockSupport.park();
+                   log.info(String.format("%s wake...", Thread.currentThread().getName()));
+               }, "t1");
+        t1.start();
+        Thread.sleep(1000);
+
+        new Thread(() -> {
+            LockSupport.unpark(t1);
+            LockSupport.unpark(t1);
+            LockSupport.unpark(t1);
+            log.info(String.format("%s notify...", Thread.currentThread().getName()));
+        }, "t2").start();
+    }
+```
+
+**總體理解**
+
+線程阻塞需要消耗 `permit`，但它最多就只有一個
+
+調用 `park` 時
+- 有 `permit`，則會直接消耗這個憑證然後正常退出
+- 無 `permit`，就必須阻塞等待 `permit` 可用
+
+而 `unpark` 則相反，它會增加一個 `permit`，但它最多就只有一個，累加無效。
+
+
+**為什麼可以無視調用順序 ?**
+因為 `unpart` 獲得一個 `permit`，之後再調用 `park` 方法，就可以名正言順的消費，故不會阻塞。先發放 `permit` 後續就可以通暢無阻。
+
+**為什麼喚醒兩次後阻塞兩次，但最後還是阻塞結果?**
+`permit` 最多為 1，連續調用兩次 `unpark` 和調用一次 `unpark` 效果一樣。而調用兩次 `park` 卻需要兩個 `permit`，但也因為 `permit` 不夠導致阻塞。
