@@ -57,3 +57,38 @@ Thread 物件的 `start()` 先行發生於此線程的每一個動作
 
 
 happens before 本質上是一種*可見性*。A Happens-before B 表示 A 發生過的事情對 B 來說是可見的，無論 A 事件和 B 事件是否發生在同一個線程裡。
+
+## volatile 與 JMM
+volatile 修飾兩大特點
+1. 可見性 寫完後立即刷新回主記憶體並即時發送通知大家可回去主記憶體拿最新版本，前面的修改對後面所有線程可見
+2. 有序性 禁止重新排序(存在數據依賴關係)
+
+- 當寫一個 `volatile` 變量時，JMM 會把該線程對應的本地記憶體中的共享變量立*即刷新回主記憶體中*
+- 當讀一個 `volatile` 變量時，JMM 會把該線程對應的本地記憶體設置為無效，*重新回到主記憶體中讀取最新共享變量*
+
+對於 `volatile`  的寫是直接刷新到主記憶體中，讀是直接從主記憶體讀取。
+
+`volatile` 是透過記憶體屏障來實現該兩大特點。
+
+### 記憶體屏障(Memory Barrier)
+記憶體屏障，是 CPU 或編譯器對記憶體隨機訪問的操作中的一個同步點，使得此點之前的所有讀寫操作都執行後才可以開始執行此點之後的操作。也控制特定條件下的重排序和記憶體可見性問題。其本身就是一種 JVM 指令，JMM 的重排規則會要求 JAVA 編譯器再生成 JVM 指令時插入特定的記憶體屏障指令，透過該記憶體屏障指令，對 `volatile` 實現了 JMM 中的可見性和有序性，但*無法保證原子性*。
+
+記憶體屏障前的所有寫操作都要回到主記憶體中，記憶體屏障後的所有讀操作都能獲得記憶體屏障之前所有寫操作的最新結果(可見性)。
+
+寫屏障(Store Memory Barrier)，告訴處理器在寫屏障之前將所有儲存在緩存中的數據同步到主記憶體中。也就是當看到 Store 屏障指令，就必須把指令之前所有寫入指令執行完畢才能繼續往下執行。
+
+讀屏障(Load Memory Barrier)，處理器在讀屏障之後的讀操作，都在讀屏障之後執行。也就是說在 Load 屏障指令之後就能夠保證後面的讀取數據指令一定能夠讀取到最新的數據。
+
+因次在重排序時，不允許把記憶體屏障之後的指令重新排序到憶體屏障之前。`volatile` 變量的寫，先行發生於任意後續對這個變量的讀，也較先寫後讀。
+
+[infoq- memory_barriers_jvm_concurrency](https://www.infoq.com/articles/memory_barriers_jvm_concurrency/)
+[gitbooks](https://luoyoubao.gitbooks.io/jvm/content/javanei-cun-mo-xing/nei-cun-ping-zhang.html)
+
+屏障可再細分以下
+
+|類型|指令|描述|
+|---|---|---|
+|LoadLoad|Load1;LoadLoad;Load2|保證 Load1 的讀取操作在 Load2 以及後續讀取操作之前執行|
+|StoreStore|Store1;StoreStore;Store2|在 Store2 及其後的寫操作執行前，保證 Store1 的寫操作已刷新到主記憶體|
+|LoadStore|Load1;LoadStore;Store2|在 Store2 及其後的寫操作執行前，保證 Load1 的讀操作已讀取結束|
+|StoreLoad|Store1;StoreLoad;Load2|保證 Store1 的寫操作已刷新到主記憶體之後，Load2 及其後的讀操作才能執行|
