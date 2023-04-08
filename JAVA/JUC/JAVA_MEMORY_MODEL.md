@@ -17,8 +17,11 @@ JMM 本身是一種抽象概念並不真實存在它僅僅描述的是一組約�
 同一個操作是不可被打斷，在多線程環境下，操作不能被其他線程干擾。
 
 ### 有序性
-對於一個線程執行程式碼而言，我們總是習慣認為程式碼執行是由上至下，有序執行。但為了提升效能，編譯器和處理器通常會對指令序列進行重新排序。JAVA 規範規定 JVM 線程內部維持順序化語意，即只要程序的最終結果與它順序執行結果相等，那麼指令的執行順序可以與程式碼順序不一致，這過程叫做指令的重排序。
+對於一個線程執行程式碼而言，我們總是習慣認為程式碼執行是由上至下，有序執行。但為了提升效能，*編譯器和處理器通常會對指令序列進行重新排序*。JAVA 規範規定 JVM 線程內部維持順序化語意，即只要程序的最終結果與它順序執行結果相等，那麼指令的執行順序可以與程式碼順序不一致，這過程叫做指令的重排序。
 
+```
+原始程式碼 -> 編譯器優化排序 -> 指令級併行重排序 -> 記憶體系統重排序 -> 最終執行指令序列
+```
 指令重排可以保證串行語意一致，但沒有義務保證*多線程的語意也一致*(可能會有髒讀)，簡而言之，兩行以上不相干的程式碼再執行的時候有可能先執行的不是第一條，不見得是從上到下順序執行，執行順序會被優化。
 
 
@@ -92,3 +95,89 @@ volatile 修飾兩大特點
 |StoreStore|Store1;StoreStore;Store2|在 Store2 及其後的寫操作執行前，保證 Store1 的寫操作已刷新到主記憶體|
 |LoadStore|Load1;LoadStore;Store2|在 Store2 及其後的寫操作執行前，保證 Load1 的讀操作已讀取結束|
 |StoreLoad|Store1;StoreLoad;Load2|保證 Store1 的寫操作已刷新到主記憶體之後，Load2 及其後的讀操作才能執行|
+
+
+**happens-before 之 volatile 變量規則**
+|第一個操作|第二個操作: 普通讀寫|第二個操作: volatile 讀|第二個操作: volatile 寫|
+|---|---|---|---|
+|普通讀寫|可以重排|可以重排|不可以重排|
+|volatile 讀|不可以重排|不可以重排|不可以重排|
+|volatile 寫|可以重排|不可以重排|不可以重排|
+
+當第一個操作為 volatile 讀時，不論第二個操作是什麼，都不能重排序。這操作保證了 volatile 讀之後的操作不會被重排到 volatile 讀之前。
+當第二個操作為 volatile 寫時，不論第一個操作是什麼，都不能重排序。這操作保證了 volatile 寫之前的操作不會被重排到 volatile 寫之後。
+當第一個操作為 volatile 寫時，第二個操作是volatile 讀時，不能重排序。
+
+**保證可見性**
+
+保證不同線程對某個變量完成操作後結果以及可見，及該共享變量一但改變所有線程立即可見。
+
+```java
+// app\src\main\java\com\cch\juc\day04\VolatileDemo.java
+    static boolean flag = true;
+    static volatile boolean flagVolatile = true;
+
+
+    public static void noSee() throws InterruptedException {
+        new Thread(() -> {
+            log.info(String.format("Thread Name: %s", Thread.currentThread().getName()));
+            while(flag) {
+            }
+            log.info(String.format("Thread Name: %s, Flag : %s. Exist.", Thread.currentThread().getName(), flag));
+        }, "t1").start();
+
+        Thread.sleep(2000);
+
+        flag = false;
+
+        log.info(String.format("Thread Name: %s, Flag : %s", Thread.currentThread().getName(), flag));
+    }
+
+    public static void see() throws InterruptedException {
+        new Thread(() -> {
+            log.info(String.format("Thread Name: %s", Thread.currentThread().getName()));
+            while(flagVolatile) {
+            }
+            log.info(String.format("Thread Name: %s, Flag : %s. Exist.", Thread.currentThread().getName(), flagVolatile));
+        }, "t1").start();
+
+        Thread.sleep(2000);
+
+        flagVolatile = false;
+
+        log.info(String.format("Thread Name: %s, Flag : %s", Thread.currentThread().getName(), flagVolatile));
+    }
+```
+
+`noSee` 方法會導致狀態被卡在 `while` 無限循環。其可能
+1. main 線程修改了 flag 之後沒刷新到主記憶體，導致 `t1` 線程無法知道被更新。
+2. flag 被 main 線程刷新至主記憶體，但 `t1` 讀到的都是自己工作記憶體內的 flag 值，沒有去主記憶體中更新獲取 flag 最新值
+
+期望效果
+1. 線程修改了自己工作記憶體中的副本之後，立即將其刷新至主記憶體
+2. 工作記憶體中每次讀取共享變量時，都去主記憶體中從新獲取，然後拷貝至工作記憶體內
+
+解決
+使用 `volatile` 修飾共享變量，就可以達到期望的效果，被 `volatile` 修飾後具有以下特點
+1. 線程中讀取的時候，每次讀取都會去主記憶體中讀取共享變量最新的值，然後將其複製到工作記憶體中
+2. 線程中修改了工作記憶體中變量的副本，修改之後立即刷新到主記憶體
+
+volatile變量的讀寫過程: 
+
+`read(讀取) -> load(加載) -> use(使用) -> assign(賦值) -> store(儲存) -> write(寫入) -> lock(鎖定) -> unlock(解鎖)`
+
+
+![](https://img-blog.csdnimg.cn/52321082da224755b5c744800eb81824.png)
+
+JVM 記憶體指令與 `volatile` 相關的操作：
+- read（讀取）：*作用於主記憶體變量*，把一個變量值從主記憶體傳輸到線程的工作記憶體中，以便隨後的 `load` 動作使用
+- load（載入）：作用於工作記憶體的變量，它把 `read` 操作從主記憶體中得到的變量值放入*工作記憶體的變量副本中*
+- use（使用）：作用於工作記憶體的變量，把工作記憶體中的一個變量值傳遞給執行引擎，每當虛擬機遇到一個需要使用變量的值的字節碼指令時將會執行這個操作
+- assign（賦值）：作用於工作記憶體的變量，它把一個從執行引擎接收到的值賦值給工作記憶體的變量，每當虛擬機遇到一個給變量賦值的字節碼指令時執行這個操作
+- store（儲存）：作用於工作記憶體的變量，把工作記憶體中的一個變量的值傳送到主記憶體中，以便隨後的 `write` 的操作
+- write（寫入）：*作用於主記憶體的變量*，它把 `store` 操作從工作記憶體中一個變量的值傳送到主記憶體的變量中
+
+上面六個元素只能保證單條指令的原子性，針對多條指令組合性的原子保證，沒有大面積加鎖，所以 JVM 提供另外兩個原子指令
+
+- lock：*作用於主記憶體*，將一個變量標記為一個線程獨佔的狀態，只是寫的時候加鎖，就只是鎖了寫變量的過程
+- unlock： *作用於主記憶體*，把一個處於鎖定狀態的變量釋放，然後才能被其他線程占用
