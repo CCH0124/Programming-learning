@@ -1,4 +1,4 @@
 {
     "java.compile.nullAnalysis.mode": "automatic",
-    "java.jdt.ls.java.home": "D:\\Java\\graalvm-ce-17"
+    "java.jdt.ls.java.home": "/usr/bin/graalvm-ce-java17-22.3.1"
 }

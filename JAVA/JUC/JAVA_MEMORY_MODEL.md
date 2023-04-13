@@ -181,3 +181,68 @@ JVM 記憶體指令與 `volatile` 相關的操作：
 
 - lock：*作用於主記憶體*，將一個變量標記為一個線程獨佔的狀態，只是寫的時候加鎖，就只是鎖了寫變量的過程
 - unlock： *作用於主記憶體*，把一個處於鎖定狀態的變量釋放，然後才能被其他線程占用
+
+**沒有原子性**
+
+```JAVA
+// app/src/main/java/com/cch/juc/day04/VolatileAtomicDemo.java
+class Number {
+    int number;
+    // 保證了原子性   
+    public synchronized void addPlus() {
+        number++;
+    }
+    
+}
+
+
+class Volatilenumber {
+    volatile int numberVolatile;
+
+    public void addPlus() {
+        numberVolatile++;
+    }
+}
+```
+
+透過以下兩個方法，測試會發現 `volatileTest()` 會出現非預期結果。因此要有原子性就要使用 lock 和 unlock
+```JAVA
+synchronizedTest();
+volatileTest();
+```
+
+原則上是多個線程對主記憶體內的值進行了讀取，並沒有鎖的機制這將導致數據會有不一致情況發生。
+
+對於 `volatile` 變量具備可見性，JVM 只是保證從主記憶體加載到線程工作記憶體的值是最新的，也僅是數據加載時是最新的。但在多線程環境下，`數據計算`和`數據賦值`會被操作多次，假設數據加載之後，若主記憶體 `volatile` 修飾變量發生修改後，線程工作記憶體中的操作將會作廢去讀取主記憶體中的最新值，操作出現血丟失問題。即*各線程私有記憶體和主記憶體中變量不同步*，進而導致數據不一致。由此可見 `volatile` 解決的是變量讀時的可見性問題，但*無法保證原子性，對於多線程修改主記憶體共享變量的場景必須使用加鎖同步*。
+
+**volatile 之禁重排**
+上面有大致提到重排序的內容，主要重點是
+- *存在數據依賴關係，禁止重新排序*
+
+>數據依賴，若兩個操作訪問同一個變量，且這兩個操作中有一個為寫操作，此時兩操作間就存在數據依賴關係
+
+
+**volatile 使用場景**
+- 單一賦值，複合運算符賦值不行
+
+```java
+volatile int a = 0;
+volatile boolean flag = true;
+```
+
+- 狀態標誌，判斷業務是否結束
+- 開銷較低的讀，寫鎖策略
+```java
+public class Counter {
+    // 當讀遠多於寫
+    private volatile int value;
+
+    public int getValue() {
+        return value; // 利用 volatile 特性保證讀取的可見性
+    }
+
+    public synchronized int increment() {
+        return value++; // 利用 synchronized 保證複合操作原子性
+    }
+}
+```
