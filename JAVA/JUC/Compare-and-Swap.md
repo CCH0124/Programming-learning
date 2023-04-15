@@ -91,3 +91,154 @@ CAS 算法實現一個重要前提須要取出記憶體中某時刻的數據並�
 - AtomicInteger
 - AtomicBoolean
 - AtomicLong
+
+**CounterDownLatch**
+```java
+// 在下面情況，需要一個時間去控制計算的那些線程是否都完成，這樣 main 線程才會拿到正確值
+    static void atominIntegerTest() {
+        MyNumber myNumber = new MyNumber();
+        for (int i = 0; i < 50; i++) {
+            new Thread(() -> {
+                for (int j = 0; j < 1000; j++) {
+                    myNumber.addPlus();
+                }
+            }, String.format("T%d", i)).start();
+        }
+
+        try {
+            // 等待上面 50 個執行續完成
+            // 否則 main 線程會有非預期結果
+            Thread.sleep(2000);
+        } catch (InterruptedException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+
+        log.info(String.format("Thread Name: %s, Result: %d .", Thread.currentThread().getName(), myNumber.atomicInteger.get()));
+    }
+```
+
+使用 `CountDownLatch` 後就可以讓 main 線程等待。
+
+```java
+static void atominIntegerTest() throws InterruptedException {
+        MyNumber myNumber = new MyNumber();
+        CountDownLatch countDownLatch = new CountDownLatch(50);
+        for (int i = 0; i < 50; i++) {
+            new Thread(() -> {
+                try {
+                    for (int j = 0; j < 1000; j++) {
+                        myNumber.addPlus();
+                    }
+                } finally {
+                    countDownLatch.countDown();
+                }
+
+            }, String.format("T%d", i)).start();
+        }
+
+        countDownLatch.await();
+
+        log.info(String.format("Thread Name: %s, Result: %d .", Thread.currentThread().getName(),
+                myNumber.atomicInteger.get()));
+    }
+```
+
+## 陣列類型原子類
+- AtomicIntegerArray
+- AtomicLongArray
+- AtomicReferenceArray
+
+## 引用類型原子類
+- AtomicReference
+- AtomicStampedReference
+- AtomicMarkableReference
+
+`AtomicMarkableReference` 和 `AtomicStampedReference` 不一樣的是只要有被變更過就是以 `true` 來表示，非一個版本一個版本紀錄。對於 `AtomicStampedReference` 解決修改過幾次，`AtomicMarkableReference` 則是是否被修改過。
+
+
+## 對象的屬性修改原子類
+- AtomicIntegerFieldUpdater
+- AtomicLongFieldUpdater
+- AtomicReferenceFieldUpdater
+
+以一種線程安全的方式操作非線程安全物件內的某些字段。更新的物件屬性須使用 `public volatile` 修飾符。因為對象屬性修改類形原子類都是抽象類，所以每次使用都必須使用靜態方法 `newUpdate()` 建立一個更新器，並且需要設置像要更新的類和屬性。
+
+
+```java
+// app/src/main/java/com/cch/juc/day06/AtomicIntegerFieldUpdaterDemo.java
+...
+class BankAccount {
+    String name = "TCB";
+
+    public volatile int money = 0;
+
+    AtomicIntegerFieldUpdater fieldUpdater = AtomicIntegerFieldUpdater.newUpdater(BankAccount.class, "money");
+
+    // 保證原子性
+    public void transferMoney(BankAccount bankAccount) {
+        fieldUpdater.getAndIncrement(bankAccount);
+    }
+
+}
+```
+
+
+```java
+// app/src/main/java/com/cch/juc/day06/AtomicReferenceFieldUpdaterDemo.java
+class Test {
+    private static final Logger log = Logger.getLogger(Test.class.getName());
+    public volatile Boolean init = Boolean.FALSE;
+
+    AtomicReferenceFieldUpdater<Test, Boolean> referenceFieldUpdater = AtomicReferenceFieldUpdater.newUpdater(Test.class, Boolean.class, "init");
+
+    public void init(Test test) throws InterruptedException {
+        if (referenceFieldUpdater.compareAndSet(test, Boolean.FALSE, Boolean.TRUE)) {
+            log.info(String.format("Thread Name: %s, Start init.", Thread.currentThread().getName()));
+            Thread.sleep(3000);
+            log.info(String.format("Thread Name: %s, Init end.", Thread.currentThread().getName()));
+        } else {
+            log.info(String.format("Thread Name: %s, Init has been finished.", Thread.currentThread().getName()));
+        }
+    }
+}
+// Apr 15, 2023 1:23:48 PM com.cch.juc.day06.Test init
+// INFO: Thread Name: T1, Init has been finished.
+// Apr 15, 2023 1:23:48 PM com.cch.juc.day06.Test init
+// INFO: Thread Name: T4, Init has been finished.
+// Apr 15, 2023 1:23:48 PM com.cch.juc.day06.Test init
+// INFO: Thread Name: T3, Init has been finished.
+// Apr 15, 2023 1:23:48 PM com.cch.juc.day06.Test init
+// INFO: Thread Name: T2, Init has been finished.
+// Apr 15, 2023 1:23:48 PM com.cch.juc.day06.Test init
+// INFO: Thread Name: T0, Start init.
+// Apr 15, 2023 1:23:51 PM com.cch.juc.day06.Test init
+// INFO: Thread Name: T0, Init end.
+```
+
+## 進階原子類
+- DoubleAccumulator 
+    - One or more variables that together maintain a running double value updated using a supplied function.
+- DoubleAdder
+    - One or more variables that together maintain an initially zero double sum.
+- LongAccumulator
+    - One or more variables that together maintain a running long value updated using a supplied function.
+- LongAdder
+    - One or more variables that together maintain an initially zero long sum.
+
+```java
+LongAccumulator accumulator = new LongAccumulator(Long::sum, 0L);
+int numberOfThreads = 4;
+int numberOfIncrements = 100;
+
+Runnable accumulateAction = () -> IntStream
+  .rangeClosed(0, numberOfIncrements)
+  .forEach(accumulator::accumulate);
+
+for (int i = 0; i < numberOfThreads; i++) {
+    executorService.execute(accumulateAction);
+}
+// https://www.baeldung.com/java-longadder-and-longaccumulator
+```
+
+相較於前面 AtomicLong 等原子類，LongAdder 等物件解決了 CAS 自旋造成 CPU 可能衝高問題，使用了 CAS + Cell 等方法來更有效率處理自旋。
