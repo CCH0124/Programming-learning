@@ -1672,3 +1672,108 @@ public class InterruptDemo2 {
 
 **為什麼喚醒兩次後阻塞兩次，但最後還是阻塞結果?**
 `permit` 最多為 1，連續調用兩次 `unpark` 和調用一次 `unpark` 效果一樣。而調用兩次 `park` 卻需要兩個 `permit`，但也因為 `permit` 不夠導致阻塞。
+
+
+## ThreadLocal
+每個 Thread 內有自己的實例副本且該副本只由當前線程自己使用。因此 Thread 之間是不可訪問存取，那就不存在多線程之間共享的問題。但是對於線程池必要使用 `remove()` 將 key 為 null 的髒 key 清除，否則會有非預期節果。
+
+[baeldung  java-threadlocal](https://www.baeldung.com/java-threadlocal)
+
+- ThreadLocal 並不解決線程間共享數據問題
+- ThreadLocal 適用於變量在線程間隔離且在方法間共享的場景
+- ThreadLocal 透過隱式的在不同線程內建立獨立實例副本避免了實例線程安全問題
+- 每個線程持有一個只屬於自己的專屬 Map 並維護 ThreadLocal 物件與具體實例的映射，該 Map 由於只被持有她的線程存取，故不存在線程安全以及鎖的問題
+- ThreadLocalMap 的 Entry 對 ThreadLocal 的引用為弱引用，避免了 ThreadLocak 物件無法被回收問題
+- 都會通過 expungeStaleEntry、cleanSomeSlots、replaceStaleEntry 這三個方法回收鍵值為 null 的 Entry 物件的值，以及 Entry 物件本身從而防止記憶體洩漏
+
+## 物件記憶體佈局
+在 HotSpot 虛擬機裡，物件在堆記憶體中儲存布局可以劃分三個部份
+- 對象頭(Header)
+- 實例數據(Instance Data)
+- 填充(Padding)
+
+![](https://gitee.com/trrunks2008/picture/raw/master/2021-3-23/1616468076318-1.png)
+
+[java-memory-layout(baeldung)](https://www.baeldung.com/java-memory-layout)
+
+[jvm-measuring-object-sizes](https://www.baeldung.com/jvm-measuring-object-sizes)
+### Header
+由兩項建立
+
+- 物件標記 (Mark Word)
+- 類元訊息(類型指針, Klass Pointer)
+  - 物件指向他的類元數據的指針，虛擬機透過這個指針來確定這個物件是哪個類的實例
+
+
+Mark Word 又包含以下
+- HashCode
+- GC 標記
+- GC 次數
+- 同步鎖標記
+- 偏向鎖持有者
+
+>在 64 位元系統中，Mark Word 占 8 個字節，Klass Pointer 也是，一共是 16 個字節
+
+![](http://www.itabin.com/content/images/2021/03/five-lock-state.jpg)
+
+[mark-word(blog)](http://www.itabin.com/mark-word/)
+
+### Instance Data
+
+存放類的屬性(Field)數據訊息，包括父類的屬性訊息
+
+
+### Padding
+虛擬機要求物件起始地址必須是 8 字節的整數倍。填充數據不是必須存在的，僅僅是為了字節對齊，這部分記憶體按 8 字節補充對齊。
+
+
+## synchronized 與鎖升級
+鎖升級過程
+```
+無鎖 -> 偏向鎖 -> 輕量鎖 -> 重量鎖
+```
+
+`synchronized`，由物件頭中的 `Mark Word` 根據鎖標誌位的不同而被複用及鎖升級策略
+
+![](https://www.chuxiwen.top/upload/2022/09/1.png)
+
+多線程訪問場景有三種
+
+- 只有一個線程來訪問，有且唯一
+- 有多個線程(兩個線程交互訪問)
+- 競爭激烈，多線程競爭
+
+`synchronized` 用的鎖是存在 Java 對象頭(Header)裡面的 Mark Word 中，鎖升級功能主要依賴 Mark Word 中鎖標誌位和釋放偏向鎖標誌。
+
+- 偏向鎖，Mark Word 儲存的是偏向的線程ID
+- 輕量鎖，Mark Word 儲存的是指向線程棧中 Lock Record 的指針
+- 重量鎖，Mark Word 儲存的是指向堆中的 Monitor 對象的指針
+
+
+### 偏向鎖
+**單線程競爭**。當線程A第一次競爭到鎖時，透過操作修改 Mark Word 中的偏向線程 ID、偏向模式。如果不存在其他線程競爭，那麼*持有偏向鎖的線程將永遠不需要進行同步*。
+
+當一段同步程式碼一直被同一個線程多次訪問(三個售票員，幾乎只有某一個售票員在處理)，由於只有一個線程那麼該線程在後續訪問時變會自動獲得鎖。偏向鎖就是在這種情況出現，他是為了解決只有在一個線程執行同步十提高效能。
+
+偏向鎖會偏向第一個訪問鎖的線程，如果接下來的運行過程中。該鎖沒有被其它的線程資源訪問，則持有偏向鎖的線程永遠不需要觸發同步。即偏向鎖在資源沒有競爭情況下消除了同步語句，連 CAS 都不操作了，相對提高效能。
+
+**偏向鎖持有**
+
+在實際應用運行過程發現，鎖總是同一個線程持有，很少發生競爭。也就是說鎖總是被第一個占用他的線程擁有，這個線程就是鎖的偏向線程。偏向鎖，不涉及到 user 和 kernel 模式之切換。
+那麼只需要在鎖第一次被擁有的時候，記錄下篇下線程 ID。這樣偏向線程就一直持有著鎖，之後該線程進入和退出這段加了同步鎖的代碼區塊時，*不需要再次加鎖和釋放鎖*。而是直接去檢查鎖的 `MarkWord` 裡面是不是自己的線程 ID。
+
+如果是，表示偏向鎖是偏向當前線程的，可以不必要再嘗試獲取鎖，直到競爭發生才釋放鎖。每次的同步，會檢查線程ID是否一致，一致直接進入同步，無須每次加解鎖都去 CAS 更新物件頭(Header)。*若始終只有一個線程使用該鎖，很明顯不會有任何開銷，效能會很好*。
+如果不是，表示發生競爭，鎖不總是偏向於同一個線程，這時會嘗試使用 CAS 來替換 `MarkWord` 裡面的線程 ID 為新線程 ID，若**競爭成功**，表示之前線程不存在了，`MarkWord` 裡面的線程 ID 為新線程 ID，鎖不會升級，仍然為偏向鎖；**競爭失敗**，可能需要升級成輕量級鎖，才能保證線程公平競爭。
+
+>偏向鎖只有遇到其它線程嘗試競爭偏向鎖時，持有偏向鎖的線程才會釋放鎖，現成是不會主動釋放偏向鎖的
+
+
+預設下虛擬機偏向鎖相關參數
+```bash
+$ java -XX:+PrintFlagsInitial | grep BiasedLock*
+     intx BiasedLockingBulkRebiasThreshold         = 20                                        {product} {default}
+     intx BiasedLockingBulkRevokeThreshold         = 40                                        {product} {default}
+     intx BiasedLockingDecayTime                   = 25000                                     {product} {default} # 初始時間
+     intx BiasedLockingStartupDelay                = 0                                         {product} {default}
+     bool UseBiasedLocking                         = false                                     {product} {default} # 使否使用偏向鎖
+```
