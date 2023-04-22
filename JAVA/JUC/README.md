@@ -1768,7 +1768,7 @@ Mark Word 又包含以下
 >偏向鎖只有遇到其它線程嘗試競爭偏向鎖時，持有偏向鎖的線程才會釋放鎖，現成是不會主動釋放偏向鎖的
 
 
-預設下虛擬機偏向鎖相關參數
+預設下虛擬機偏向鎖相關參數，JAVA 17 內容
 ```bash
 $ java -XX:+PrintFlagsInitial | grep BiasedLock*
      intx BiasedLockingBulkRebiasThreshold         = 20                                        {product} {default}
@@ -1777,3 +1777,24 @@ $ java -XX:+PrintFlagsInitial | grep BiasedLock*
      intx BiasedLockingStartupDelay                = 0                                         {product} {default}
      bool UseBiasedLocking                         = false                                     {product} {default} # 使否使用偏向鎖
 ```
+
+> 在 JAVA 15 逐步廢棄偏向鎖
+
+### 輕量級鎖
+
+多線程競爭，但是任意時刻最多只有一個線程競爭，即不存在鎖競爭太過激烈的情況，也就沒有線程阻塞。就是有線程參與鎖的競爭，但是獲取鎖的衝突時間極短。*本質就是自旋鎖 CAS*。
+
+輕量級鎖是為了線程近乎交替執行同步塊時提高性能。
+
+目的: 在沒有多現成競爭的前提下，透過 CAS 減少重量級鎖使用作業系統底層所產生的消耗，講白先自旋，不行才升級阻塞。升級時機，當關閉偏向鎖功能或多線程競爭偏向鎖會導致偏向鎖升級為輕量級鎖
+
+### 重量級鎖
+
+JAVA 中 `synchronized` 的重量級鎖，是基於進入和退出 `Monitor` 對象實現的。在編譯時會將同步塊的開始位置插入 monitor enter 指令，在結束位置插入 monitor exit 指令。
+
+當線程執行到 monitor enter 指令時，會嘗試獲取對象所對應的 Monitor 所有權，如果獲取到了，則有鎖，並在 Monitor 的 owner 中存放當前線程的 ID，這樣他將處於鎖定狀態，除非退出該同步區塊，否則其它線程無法獲取這個 Monitor。
+
+
+### 總結
+`synchronized` 鎖升級過程，先自旋，不行再阻塞。
+實際上是把之前的悲觀鎖(重量級鎖)變成再一定條件下使用偏向鎖以及使用輕量級(自旋CAS)的形式。
